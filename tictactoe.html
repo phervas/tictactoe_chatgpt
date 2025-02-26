@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #1e1e1e;
+      color: #ffffff;
+      overflow-x: hidden; /* Prevent horizontal scrolling due to scaling */
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      justify-content: center;
+      margin-top: 20px;
+      position: relative;
+    }
+    .cell {
+      width: 100px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+      border: 2px solid #ffffff;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      background-color: #333;
+      color: #ffffff;
+      position: relative;
+    }
+    .cell:hover {
+      background-color: #555;
+      transform: scale(1.05); /* Slightly less aggressive scaling */
+    }
+    .win {
+      background-color: #4CAF50 !important;
+      color: white !important;
+    }
+    .draw {
+      background-color: #aaa !important; /* Lighter grey for draw */
+    }
+    .cell.X {
+      color: #2196F3;
+    }
+    .cell.O {
+      color: #F44336;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 1.5em;
+      transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+    .scoreboard {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      font-size: 1.2em;
+      margin-top: 20px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #1976D2;
+    }
+    .language-selection {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="language-selection" id="languageSelection">
+    <h2>Choose a language:</h2>
+    <button onclick="setLanguage('en')">English</button>
+    <button onclick="setLanguage('fr')">Français</button>
+    <button onclick="setLanguage('es')">Español</button>
+  </div>
+
+  <div id="gameContainer" style="display: none;">
+    <h1 id="gameTitle">Tic-Tac-Toe</h1>
+    <div id="status">Player X's Turn</div>
+    <div class="scoreboard" id="scoreboard">
+      <div id="scoreX">X: 0</div>
+      <div id="scoreO">O: 0</div>
+      <div id="scoreDraw">Draws: 0</div>
+    </div>
+    <div class="board" id="board"></div>
+    <button onclick="resetGame()" id="restartButton">Restart</button>
+  </div>
+
+  <script>
+    let lang = 'en';
+    const translations = {
+      en: {
+        title: 'Tic-Tac-Toe',
+        turn: "Player X's Turn",
+        restart: 'Restart',
+        win: 'Player {player} Wins!',
+        draw: 'Draw!',
+        scoreX: 'X: ',
+        scoreO: 'O: ',
+        scoreDraw: 'Draws: '
+      },
+      fr: {
+        title: 'Morpion',
+        turn: "Tour du joueur X",
+        restart: 'Redémarrer',
+        win: 'Le joueur {player} a gagné!',
+        draw: 'Égalité!',
+        scoreX: 'X : ',
+        scoreO: 'O : ',
+        scoreDraw: 'Égalités : '
+      },
+      es: {
+        title: 'Tres en Raya',
+        turn: "Turno del jugador X",
+        restart: 'Reiniciar',
+        win: '¡Jugador {player} gana!',
+        draw: '¡Empate!',
+        scoreX: 'X: ',
+        scoreO: 'O: ',
+        scoreDraw: 'Empates: '
+      }
+    };
+
+    // Score variables
+    let scoreX = 0,
+      scoreO = 0,
+      scoreDraw = 0;
+
+    // Game state
+    let board = ['', '', '', '', '', '', '', '', ''];
+    let currentPlayer = 'X';
+    let gameActive = true;
+    let winningPattern = [];
+
+    // Update the scoreboard based on current scores and language
+    function updateScoreboard() {
+      document.getElementById('scoreX').textContent =
+        translations[lang]['scoreX'] + scoreX;
+      document.getElementById('scoreO').textContent =
+        translations[lang]['scoreO'] + scoreO;
+      document.getElementById('scoreDraw').textContent =
+        translations[lang]['scoreDraw'] + scoreDraw;
+    }
+
+    // Set language based on detected or selected language
+    function setLanguage(selectedLang) {
+      lang = selectedLang;
+      document.documentElement.lang = lang;
+      document.getElementById('languageSelection').style.display = 'none';
+      document.getElementById('gameContainer').style.display = 'block';
+      document.getElementById('gameTitle').textContent =
+        translations[lang]['title'];
+      updateStatus(translations[lang]['turn']);
+      document.getElementById('restartButton').textContent =
+        translations[lang]['restart'];
+      createBoard();
+      updateScoreboard();
+    }
+
+    // Update game status message
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+    }
+
+    // Render the game board and reapply styling if game ended in a draw
+    function createBoard() {
+      const boardElement = document.getElementById('board');
+      boardElement.innerHTML = '';
+      board.forEach((cell, index) => {
+        const cellElement = document.createElement('div');
+        cellElement.classList.add('cell');
+        cellElement.textContent = cell;
+        if (cell) cellElement.classList.add(cell);
+        cellElement.addEventListener('click', () => handleMove(index));
+        boardElement.appendChild(cellElement);
+      });
+      highlightWinningCells();
+      // If the board is full and there's no winner, mark cells as a draw.
+      if (!board.includes('') && winningPattern.length === 0) {
+        document.querySelectorAll('.cell').forEach(cell =>
+          cell.classList.add('draw')
+        );
+      }
+    }
+
+    // Handle a player's move on a given cell index
+    function handleMove(index) {
+      if (!gameActive || board[index] !== '') return;
+      board[index] = currentPlayer;
+      checkWinner();
+      if (gameActive) {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        updateStatus(translations[lang]['turn'].replace('X', currentPlayer));
+      }
+      createBoard();
+    }
+
+    // Check if there's a winning pattern or draw
+    function checkWinner() {
+      const winPatterns = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
+      ];
+      for (let pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          gameActive = false;
+          updateStatus(
+            translations[lang]['win'].replace('{player}', board[a])
+          );
+          winningPattern = pattern;
+          // Update scoreboard based on the winner.
+          if (board[a] === 'X') {
+            scoreX++;
+          } else {
+            scoreO++;
+          }
+          updateScoreboard();
+          return;
+        }
+      }
+      if (!board.includes('') && gameActive) {
+        updateStatus(translations[lang]['draw']);
+        scoreDraw++;
+        updateScoreboard();
+        gameActive = false;
+      }
+    }
+
+    // Highlight cells that form the winning pattern
+    function highlightWinningCells() {
+      if (!winningPattern.length) return;
+      const cells = document.querySelectorAll('.cell');
+      winningPattern.forEach(index => {
+        cells[index].classList.add('win');
+      });
+    }
+
+    // Reset the game board (scores remain)
+    function resetGame() {
+      board = ['', '', '', '', '', '', '', '', ''];
+      currentPlayer = 'X';
+      gameActive = true;
+      winningPattern = [];
+      updateStatus(translations[lang]['turn']);
+      createBoard();
+    }
+
+    // Auto-detect the user's preferred language
+    function detectLanguage() {
+      let userLang = navigator.language || navigator.userLanguage;
+      userLang = userLang.substring(0, 2);
+      if (!translations[userLang]) {
+        userLang = 'en';
+      }
+      return userLang;
+    }
+
+    // On page load, auto-detect language and initialize the game.
+    document.addEventListener('DOMContentLoaded', () => {
+      const detectedLang = detectLanguage();
+      setLanguage(detectedLang);
+      // Optionally, keep language selection visible for manual override.
+      // To hide it instead, uncomment the next line:
+      // document.getElementById('languageSelection').style.display = 'none';
+    });
+  </script>
+</body>
+</html>
